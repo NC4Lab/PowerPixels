@@ -194,11 +194,11 @@ class Pipeline:
         """
         
         
-        if len(glob(join(self.probe_path, '*ap.cbin'))) > 0:
+        if len(glob(join(self.rec_path, '*ap.cbin'))) > 0:
             # Recording is already compressed by a previous run, loading in compressed data
-            rec = si.read_cbin_ibl(self.probe_path)
+            rec = si.read_cbin_ibl(self.rec_path)
         else: 
-            rec = si.read_spikeglx(self.probe_path, stream_id=si.get_neo_streams('spikeglx', self.probe_path)[0][0])
+            rec = si.read_spikeglx(self.rec_path, stream_id=si.get_neo_streams('spikeglx', self.rec_path)[0][0])
                     
         # Apply high-pass filter
         print('\nApplying high-pass filter.. ')
@@ -252,35 +252,35 @@ class Pipeline:
         fig, ax = plt.subplots(figsize=(10, 7))
         for tr in data_chunk.T:
             p, f = ax.psd(tr, Fs=rec_processed.sampling_frequency, color="b")
-        plt.savefig(join(self.probe_path, 'power spectral density.jpg'), dpi=600)
+        plt.savefig(join(self.results_path, 'pp_power_spectral_density.jpg'), dpi=600)
         
-        # Apply notch filter 
-        if isfile(join(self.probe_path, 'notch_filter.json')):
+        # # Apply notch filter 
+        # if isfile(join(self.probe_path, 'notch_filter.json')):
             
-            # Load in notch filter settings
-            with open(join(self.probe_path, 'notch_filter.json'), 'r') as openfile:
-                notch_filter = json.load(openfile)
+        #     # Load in notch filter settings
+        #     with open(join(self.probe_path, 'notch_filter.json'), 'r') as openfile:
+        #         notch_filter = json.load(openfile)
                 
-            # Apply filters
-            rec_notch = rec_processed
-            for freq, q in zip(notch_filter['FREQ'], notch_filter['Q']):
-                print(f'Applying notch filter at {freq} Hz..')
-                rec_notch = si.notch_filter(rec_notch, freq=freq, q=q)
+        #     # Apply filters
+        #     rec_notch = rec_processed
+        #     for freq, q in zip(notch_filter['FREQ'], notch_filter['Q']):
+        #         print(f'Applying notch filter at {freq} Hz..')
+        #         rec_notch = si.notch_filter(rec_notch, freq=freq, q=q)
                 
-            # Plot spectral density
-            print('Calculating power spectral density')
-            data_chunk = si.get_random_data_chunks(rec_notch, num_chunks_per_segment=1,
-                                                   chunk_size=30000, seed=42)
-            fig, ax = plt.subplots(figsize=(10, 7))
-            for tr in data_chunk.T:
-                p, f = ax.psd(tr, Fs=rec_processed.sampling_frequency, color="b")
-            plt.savefig(join(self.probe_path, 'power spectral density after notch filter.jpg'), dpi=600)
+        #     # Plot spectral density
+        #     print('Calculating power spectral density')
+        #     data_chunk = si.get_random_data_chunks(rec_notch, num_chunks_per_segment=1,
+        #                                            chunk_size=30000, seed=42)
+        #     fig, ax = plt.subplots(figsize=(10, 7))
+        #     for tr in data_chunk.T:
+        #         p, f = ax.psd(tr, Fs=rec_processed.sampling_frequency, color="b")
+        #     plt.savefig(join(self.probe_path, 'power spectral density after notch filter.jpg'), dpi=600)
             
-            rec_final = rec_notch
-        else:
-            rec_final = rec_processed
+        #     rec_final = rec_notch
+        # else:
+        #     rec_final = rec_processed
             
-        return rec_final
+        return rec_processed
     
     
     def spikesorting(self, rec, probe_path):
