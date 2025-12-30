@@ -14,7 +14,7 @@ from pathlib import Path
 import shutil
 from glob import glob
 import json
-from .utils import load_neural_data
+from utils import load_neural_data
 import bombcell as bc
 import spikeinterface.full as si
 from one.api import ONE
@@ -86,6 +86,19 @@ class Pipeline:
             self.nidq_file = list((self.session_path / 'raw_ephys_data').glob('*.nidq.*bin'))[0]
             
         return
+    
+    def set_rec_paths(self, rec_path):
+        # Set SpikeGLX specific paths
+        self.rec_path = Path(rec_path)
+        self.ap_file = list(self.rec_path.glob('*ap.*bin'))[0]
+        self.meta_file = list(self.rec_path.glob('*ap.meta'))[0]
+    
+    def set_sorter_out_path(self, sorter_output_path):
+        # Set path to kilosort4/sorter_output
+        self.sorter_out_path = Path(sorter_output_path)
+    
+    def set_results_path(self, results_path):
+        self.results_path = Path(results_path)
     
     
     def restructure_files(self):
