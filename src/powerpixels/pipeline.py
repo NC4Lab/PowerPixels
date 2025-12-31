@@ -87,7 +87,7 @@ class Pipeline:
             
         return
     
-    def set_rec_paths(self, rec_path):
+    def set_rec_path(self, rec_path):
         # Set SpikeGLX specific paths
         self.rec_path = Path(rec_path)
         self.ap_file = list(self.rec_path.glob('*ap.*bin'))[0]
@@ -96,10 +96,6 @@ class Pipeline:
     def set_sorter_out_path(self, sorter_output_path):
         # Set path to kilosort4/sorter_output
         self.sorter_out_path = Path(sorter_output_path)
-    
-    def set_results_path(self, results_path):
-        self.results_path = Path(results_path)
-    
     
     def restructure_files(self):
         """
@@ -383,7 +379,7 @@ class Pipeline:
         """
         
         # If there is no LF file (NP2 probes), generate it
-        if len(glob(join(self.probe_path, '*lf.*bin'))) == 0:
+        if len(glob(join(self.results_path, '*lf.*bin'))) == 0:
             print('Generating LFP bin file (can take a while)')
             conv = NP2Converter(self.ap_file, compress=False)
             conv._process_NP21(assert_shanks=False)
@@ -392,16 +388,18 @@ class Pipeline:
             NP2_probe = False
                                     
         # Compute raw ephys QC metrics
-        if not isfile(join(self.probe_path, '_iblqc_ephysSpectralDensityAP.power.npy')):
+        if not isfile(join(self.results_path, '_iblqc_ephysSpectralDensityAP.power.npy')):
             task = ephysqc.EphysQC('', session_path=self.session_path, use_alyx=False)
-            task.probe_path = self.probe_path
-            task.run()                
-            extract_rmsmap(self.ap_file, out_folder=self.probe_path, spectra=False)
+            # note: sesion_path is not used when use_alyx = False
+            # the following probe_path is used to find ap.bin and ap.meta files in run()
+            task.probe_path = self.rec_path
+            task.run(out_path=self.results_path)                
+            extract_rmsmap(self.ap_file, out_folder=self.results_path, spectra=False)
         
-        # If an LF bin file was generated, delete it (results in errors down the line)
-        if NP2_probe and len(glob(join(self.probe_path, '*lf.*bin'))) == 1:
-            os.remove(glob(join(self.probe_path, '*lf.*bin'))[0])
-            os.remove(glob(join(self.probe_path, '*lf.*meta'))[0])
+        # # If an LF bin file was generated, delete it (results in errors down the line)
+        # if NP2_probe and len(glob(join(self.probe_path, '*lf.*bin'))) == 1:
+        #     os.remove(glob(join(self.probe_path, '*lf.*bin'))[0])
+        #     os.remove(glob(join(self.probe_path, '*lf.*meta'))[0])
                 
         return
     
