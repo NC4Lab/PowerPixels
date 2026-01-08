@@ -197,8 +197,13 @@ class Pipeline:
             rec = si.read_spikeglx(self.rec_path, stream_id=si.get_neo_streams('spikeglx', self.rec_path)[0][0])
                     
         # Apply high-pass filter
-        print('\nApplying high-pass filter.. ')
-        rec_filtered = si.highpass_filter(rec, ftype='bessel', dtype='float32')
+        # Default freq_min=300.0
+        # print('\nApplying high-pass filter.. ')
+        # rec_highpass_filtered = si.highpass_filter(rec, ftype='bessel', dtype='float32')
+
+        # Apply band-pass filter -SF
+        print('\nApplying band-pass filter.. ')
+        rec_filtered = si.bandpass_filter(rec, freq_min=300, freq_max=5000)
                     
         # Correct for inter-sample phase shift
         print('Correcting for phase shift.. ')
@@ -208,6 +213,7 @@ class Pipeline:
         print('Detecting and interpolating over bad channels.. ')
         
         # Do common average referencing before detecting bad channels
+        # Why the input is not rec_shifted? -SF
         rec_comref = si.common_reference(rec_filtered)
         
         # Detect dead channels
@@ -396,10 +402,11 @@ class Pipeline:
             task.run(out_path=self.results_path)                
             extract_rmsmap(self.ap_file, out_folder=self.results_path, spectra=False)
         
-        # # If an LF bin file was generated, delete it (results in errors down the line)
-        # if NP2_probe and len(glob(join(self.probe_path, '*lf.*bin'))) == 1:
-        #     os.remove(glob(join(self.probe_path, '*lf.*bin'))[0])
-        #     os.remove(glob(join(self.probe_path, '*lf.*meta'))[0])
+        # If an LF bin file was generated in the recording folder (same folder as .ap.bin file),
+        # delete it (results in errors down the line)
+        if NP2_probe and len(glob(join(self.rec_path, '*lf.*bin'))) == 1:
+            os.remove(glob(join(self.rec_path, '*lf.*bin'))[0])
+            os.remove(glob(join(self.rec_path, '*lf.*meta'))[0])
                 
         return
     
@@ -412,26 +419,46 @@ class Pipeline:
 
         """        
         
-        # Set the dat_file path correctly in params.py before conversion         
+        # Set the dat_file path correctly in params.py before conversion   
+        #  
+        # This orginal Powerpixels code causes SyntaxError due to the '\'
+        # in dat_path in the overwritten last line in params.py              
+        # with open(join(self.sorter_out_path, 'params.py'), 'r') as file:
+        #     lines = file.readlines()
+        # lines[-1] = f"dat_path = '{self.ap_file}'\n"
+        # with open(join(self.sorter_out_path, 'params.py'), 'w') as file:
+        #     file.writelines(lines)
         with open(join(self.sorter_out_path, 'params.py'), 'r') as file:
             lines = file.readlines()
-        lines[-1] = f"dat_path = '{self.ap_file}'\n"
+        # rename the original params.py
+        os.rename(join(self.sorter_out_path, 'params.py'), join(self.sorter_out_path, 'kilosort_orig_params.py'))
+        
+        new_last_line = f"dat_path = ['{self.ap_file}']\n"
+        new_last_line = new_last_line.replace('\\', '/')
+        lines[-1] = new_last_line
         with open(join(self.sorter_out_path, 'params.py'), 'w') as file:
             file.writelines(lines)
-            
+        # Generate a README.txt saying the params.py has been updated (original one kept)
+        with open(join(self.sorter_out_path, 'README.txt'), 'x') as file:
+            file.write("""The original kilosort params.py was renamed as 'kilosort_orig_params.py'
+        The new params.py in this folder has its last line updated after running PowerPixel pipeline""")
+
         # Export as ALF files
         if not isdir(self.results_path):
             os.mkdir(self.results_path)
-        ks2_to_alf(self.sorter_out_path, self.probe_path, self.results_path, bin_file=self.ap_file)
+        ks2_to_alf(self.sorter_out_path, self.rec_path, self.results_path, bin_file=self.ap_file)
         
-        # Delete phy waveforms (we won't use Phy)
-        for phy_file in glob(join(self.results_path, '_phy_*')):
-            os.remove(phy_file)
+        # # Delete phy waveforms (we won't use Phy)
+        # # this throws PermissionError: [WinError 32] The process cannot access the file 
+        # # because it is being used by another process:
+        # for phy_file in glob(join(self.results_path, '_phy_*')):
+        #     os.remove(phy_file)
         
-        # Move LFP power etc. to the alf folder
-        qc_files = glob(join(self.probe_path, '_iblqc_*'))
-        for ii, this_file in enumerate(qc_files):
-            shutil.move(this_file, join(self.results_path, split(this_file)[1]))
+        # # Move LFP power etc. to the alf folder
+        # # Seems unnecessary
+        # qc_files = glob(join(self.probe_path, '_iblqc_*'))
+        # for ii, this_file in enumerate(qc_files):
+        #     shutil.move(this_file, join(self.results_path, split(this_file)[1]))
         
         return
             
