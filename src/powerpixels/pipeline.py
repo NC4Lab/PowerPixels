@@ -93,10 +93,6 @@ class Pipeline:
         self.ap_file = list(self.rec_path.glob('*ap.*bin'))[0]
         self.meta_file = list(self.rec_path.glob('*ap.meta'))[0]
     
-    def set_sorter_out_path(self, sorter_output_path):
-        # Set path to kilosort4/sorter_output
-        self.sorter_out_path = Path(sorter_output_path)
-    
     def restructure_files(self):
         """
         Restructure the raw data files from SpikeGLX (OpenEphys not supported)
@@ -506,7 +502,7 @@ class Pipeline:
         if hasattr(si, 'auto_label_units'):
             
             # Load in recording
-            sorting_analyzer = si.load_sorting_analyzer(self.results_path / 'sorting')
+            sorting_analyzer = si.load_sorting_analyzer(self.sorting_analyzer_path)
                      
             # Apply the sua/mua model
             ml_labels = si.auto_label_units(
@@ -523,8 +519,7 @@ class Pipeline:
         
         # Calculate IBL neuron level QC
         print('\nCalculating IBL neuron-level quality metrics..', end=' ')
-        spikes, clusters, channels = load_neural_data(self.session_path,
-                                                      self.this_probe)
+        spikes, clusters, channels = load_neural_data(self.session_path)
         df_units, rec_qc = spike_sorting_metrics(spikes['times'], spikes['clusters'],
                                                  spikes['amps'], spikes['depths'])
         print('Done')
@@ -543,7 +538,7 @@ class Pipeline:
         
         
         # Add to quality metrics
-        qc_metrics = pd.read_csv(join(self.results_path, 'sorting', 'extensions', 'quality_metrics',
+        qc_metrics = pd.read_csv(join(self.sorting_analyzer_path, 'extensions', 'quality_metrics',
                                       'metrics.csv'), index_col=0)
         qc_metrics['Kilosort'] = (ks_metric['KSLabel'] == 'good').astype(int)
         qc_metrics.insert(0, 'Kilosort', qc_metrics.pop('Kilosort'))
@@ -555,8 +550,9 @@ class Pipeline:
         qc_metrics.insert(0, 'Bombcell', qc_metrics.pop('Bombcell'))
         
         # Save to disk
+        # Save updated quality metrics file to powerpixels folder
         qc_metrics.to_csv(join(
-            self.results_path, 'sorting', 'extensions', 'quality_metrics', 'metrics.csv'))
+            self.session_path, 'analyzed', 'sorting', 'powerpixels', 'pp_quality_metrics.csv'))
         np.save(join(self.results_path, 'clusters.iblLabels.npy'), qc_metrics['IBL'])
         np.save(join(self.results_path, 'clusters.kilosortLabels.npy'), qc_metrics['Kilosort'])
         np.save(join(self.results_path, 'clusters.unitrefineLabels.npy'), qc_metrics['UnitRefine'])
@@ -564,9 +560,11 @@ class Pipeline:
         if isfile(join(self.results_path, 'cluster_KSLabel.tsv')):
             os.remove(join(self.results_path, 'cluster_KSLabel.tsv'))
         
-        # Copy quality metrics to output folder
-        shutil.copy(join(self.results_path, 'sorting', 'extensions', 'quality_metrics', 'metrics.csv'),
-                    join(self.results_path, 'clusters.metrics.csv'))
+        # # Copy quality metrics to output folder
+        # # Don't need this step because the metrics.csv file in the sorting analyzer folder is not overwritten
+        # # The updated quality metrics file is saved to powerpixels folder
+        # shutil.copy(join(self.results_path, 'sorting', 'extensions', 'quality_metrics', 'metrics.csv'),
+        #             join(self.results_path, 'clusters.metrics.csv'))
         
         return
         
