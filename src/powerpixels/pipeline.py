@@ -437,7 +437,7 @@ class Pipeline:
         # Generate a README.txt saying the params.py has been updated (original one kept)
         with open(join(self.sorter_out_path, 'README.txt'), 'x') as file:
             file.write("""The original kilosort params.py was renamed as 'kilosort_orig_params.py'
-        The new params.py in this folder has its last line updated after running PowerPixel pipeline""")
+The new params.py in this folder has its last line updated after running PowerPixel pipeline""")
 
         # Export as ALF files
         if not isdir(self.results_path):
